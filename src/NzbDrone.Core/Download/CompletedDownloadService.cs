@@ -8,6 +8,7 @@ using NzbDrone.Common.Extensions;
 using NzbDrone.Common.Instrumentation.Extensions;
 using NzbDrone.Core.Download.TrackedDownloads;
 using NzbDrone.Core.History;
+using NzbDrone.Core.Indexers;
 using NzbDrone.Core.MediaFiles;
 using NzbDrone.Core.MediaFiles.EpisodeImport;
 using NzbDrone.Core.Messaging.Events;
@@ -164,6 +165,11 @@ namespace NzbDrone.Core.Download
                 return;
             }
 
+            if (RejectBelowMinimumScore(trackedDownload, importResults))
+            {
+                return;
+            }
+
             if (importResults.Count == 1)
             {
                 var firstResult = importResults.First();
@@ -268,6 +274,37 @@ namespace NzbDrone.Core.Download
 
             _logger.Debug("Not all episodes have been imported for the release '{0}'", trackedDownload.DownloadItem.Title);
             return false;
+        }
+
+        private bool RejectBelowMinimumScore(TrackedDownload trackedDownload, List<ImportResult> importResults)
+        {
+            if (trackedDownload.Protocol != DownloadProtocol.Torrent ||
+                trackedDownload.DownloadItem.Status != DownloadItemStatus.Completed ||
+                importResults.Any(r => r.Result != ImportResultType.Rejected ||
+                    r.ImportDecision.LocalEpisode?.ExistingFile != false ||
+                    r.ImportDecision.LocalEpisode.Episodes.Empty() ||
+                    r.ImportDecision.Rejections.Empty() ||
+                    r.ImportDecision.Rejections.Any(rejection => rejection.Reason != ImportRejectionReason.BelowMinimumCustomFormatScore)))
+            {
+                return false;
+            }
+
+            var grabbed = _historyService.FindByDownloadId(trackedDownload.DownloadItem.DownloadId)
+                .Where(h => h.EventType == EpisodeHistoryEventType.Grabbed).ToList();
+            var rejectedEpisodeIds = importResults.SelectMany(r => r.ImportDecision.LocalEpisode.Episodes)
+                .Select(e => e.Id).ToHashSet();
+
+            if (grabbed.Empty() || grabbed.Any(h => h.SeriesId != trackedDownload.RemoteEpisode.Series.Id || h.EpisodeId <= 0) ||
+                !rejectedEpisodeIds.SetEquals(grabbed.Select(h => h.EpisodeId)))
+            {
+                return false;
+            }
+
+            // ponytail: retain payloads; safe deletion needs the client's full file ownership map.
+            trackedDownload.PreserveFilesOnFailure = true;
+            trackedDownload.Warn("Downloaded files are below the quality profile minimum Custom Format score");
+            trackedDownload.Fail();
+            return true;
         }
 
         private void SetStateToImportBlocked(TrackedDownload trackedDownload)

@@ -70,6 +70,20 @@ namespace NzbDrone.Core.Test.Download.FailedDownloadServiceTests
         }
 
         [Test]
+        public void should_publish_below_minimum_failure_with_payload_preservation()
+        {
+            _trackedDownload.PreserveFilesOnFailure = true;
+
+            Subject.ProcessFailed(_trackedDownload);
+
+            Mocker.GetMock<IEventAggregator>().Verify(v => v.PublishEvent(It.Is<DownloadFailedEvent>(e =>
+                e.TrackedDownload.PreserveFilesOnFailure &&
+                e.Message.Contains("minimum Custom Format score") &&
+                !e.SkipRedownload)), Times.Once());
+            _trackedDownload.State.Should().Be(TrackedDownloadState.Failed);
+        }
+
+        [Test]
         public void should_include_tracked_download_in_message()
         {
             _trackedDownload.DownloadItem.Status = DownloadItemStatus.Failed;

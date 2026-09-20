@@ -30,6 +30,16 @@ namespace NzbDrone.Core.MediaFiles.EpisodeImport.Specifications
             var qualityProfile = localEpisode.Series.QualityProfile.Value;
             var qualityComparer = new QualityModelComparer(qualityProfile);
 
+            if (!localEpisode.ExistingFile && downloadClientItem != null &&
+                localEpisode.CustomFormatScore < qualityProfile.MinFormatScore)
+            {
+                return ImportSpecDecision.Reject(
+                    ImportRejectionReason.BelowMinimumCustomFormatScore,
+                    "Custom Format score {0} is below the quality profile minimum {1}",
+                    localEpisode.CustomFormatScore,
+                    qualityProfile.MinFormatScore);
+            }
+
             foreach (var episode in localEpisode.Episodes.Where(e => e.EpisodeFileId > 0))
             {
                 var episodeFile = episode.EpisodeFile.Value;

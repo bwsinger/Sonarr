@@ -7,8 +7,10 @@ using NUnit.Framework;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.CustomFormats;
 using NzbDrone.Core.Datastore;
+using NzbDrone.Core.Download;
 using NzbDrone.Core.Languages;
 using NzbDrone.Core.MediaFiles;
+using NzbDrone.Core.MediaFiles.EpisodeImport;
 using NzbDrone.Core.MediaFiles.EpisodeImport.Specifications;
 using NzbDrone.Core.Parser.Model;
 using NzbDrone.Core.Profiles;
@@ -43,6 +45,55 @@ namespace NzbDrone.Core.Test.MediaFiles.EpisodeImport.Specifications
                                     Languages = new List<Language> { Language.Spanish },
                                     Series = _series
                                 };
+        }
+
+        [TestCase(-1, 0, false)]
+        [TestCase(9, 10, false)]
+        [TestCase(10, 10, true)]
+        [TestCase(-5, -10, true)]
+        public void downloaded_file_must_meet_profile_minimum_even_without_existing_file(int score, int minimum, bool accepted)
+        {
+            _localEpisode.CustomFormatScore = score;
+            _series.QualityProfile.Value.MinFormatScore = minimum;
+
+            var result = Subject.IsSatisfiedBy(_localEpisode, new DownloadClientItem());
+
+            result.Accepted.Should().Be(accepted);
+            if (!accepted)
+            {
+                result.Reason.Should().Be(ImportRejectionReason.BelowMinimumCustomFormatScore);
+            }
+        }
+
+        [Test]
+        public void below_minimum_must_not_bypass_import_check_as_a_quality_upgrade()
+        {
+            _localEpisode.CustomFormatScore = -1;
+            _localEpisode.Episodes.Add(new Episode
+            {
+                EpisodeFileId = 1,
+                EpisodeFile = new EpisodeFile { Quality = new QualityModel(Quality.SDTV) }
+            });
+
+            Subject.IsSatisfiedBy(_localEpisode, new DownloadClientItem()).Reason
+                .Should().Be(ImportRejectionReason.BelowMinimumCustomFormatScore);
+        }
+
+        [Test]
+        public void below_minimum_must_not_reject_existing_library_file()
+        {
+            _localEpisode.ExistingFile = true;
+            _localEpisode.CustomFormatScore = -1;
+
+            Subject.IsSatisfiedBy(_localEpisode, new DownloadClientItem()).Accepted.Should().BeTrue();
+        }
+
+        [Test]
+        public void below_minimum_must_not_change_untracked_folder_import()
+        {
+            _localEpisode.CustomFormatScore = -1;
+
+            Subject.IsSatisfiedBy(_localEpisode, null).Accepted.Should().BeTrue();
         }
 
         [Test]

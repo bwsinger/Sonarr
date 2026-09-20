@@ -89,7 +89,7 @@ namespace NzbDrone.Core.Download
             try
             {
                 _logger.Debug("[{0}] Removing download from {1} history", trackedDownload.DownloadItem.Title, trackedDownload.DownloadItem.DownloadClientInfo.Name);
-                downloadClient.RemoveItem(trackedDownload.DownloadItem, true);
+                downloadClient.RemoveItem(trackedDownload.DownloadItem, !trackedDownload.PreserveFilesOnFailure);
                 trackedDownload.DownloadItem.Removed = true;
             }
             catch (NotSupportedException)
