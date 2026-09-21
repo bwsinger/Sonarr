@@ -53,6 +53,7 @@ namespace NzbDrone.Core.Test.MediaFiles.EpisodeImport.Aggregation
 
             Subject.Augment(_localEpisode, null);
 
+            _localEpisode.DevImportFix.Should().Be("special-title");
             _localEpisode.FileEpisodeInfo.Special.Should().BeTrue();
             _localEpisode.FileEpisodeInfo.SeasonNumber.Should().Be(0);
             _localEpisode.Episodes.Should().ContainSingle().Which.Should().BeSameAs(_special);
@@ -98,6 +99,7 @@ namespace NzbDrone.Core.Test.MediaFiles.EpisodeImport.Aggregation
 
             Subject.Augment(_localEpisode, null);
 
+            _localEpisode.DevImportFix.Should().BeNull();
             _localEpisode.Episodes.Should().ContainSingle().Which.Should().BeSameAs(episode);
             Mocker.GetMock<IEpisodeService>()
                 .Verify(s => s.FindEpisodeByTitle(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>()), Times.Never());

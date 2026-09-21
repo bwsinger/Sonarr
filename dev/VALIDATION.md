@@ -33,3 +33,13 @@ DOTNET_PROCESSOR_COUNT=2 "$HOME/.local/share/arr-dev-dotnet/dotnet" test \
 - Two independent critical reviews finished clean.
 - Import/parser/title-matching tests: 1,803 passed, 3 skipped, zero failures.
   Filter: `FullyQualifiedName~MediaFiles.EpisodeImport|FullyQualifiedName~ParserTests|FullyQualifiedName~FindEpisodeByTitleFixture`.
+
+## Benefit instrumentation — 2026-09-21
+
+- 71 focused history, aggregation, mapping, manual-import and recovery tests
+  passed with no failures. Independent critical reviews finished clean.
+- All successful new-download imports receive a versioned cohort marker.
+  Assisted imports persist their specific fix and log after history insertion.
+- Explicit manual overrides and identical upstream mappings receive no credit.
+  A failed baseline comparison cannot interfere with the actual import.
+- Score-recovery events are measured separately from successful imports.

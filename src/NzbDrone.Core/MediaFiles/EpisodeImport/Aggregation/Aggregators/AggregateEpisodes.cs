@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -77,6 +78,11 @@ namespace NzbDrone.Core.MediaFiles.EpisodeImport.Aggregation.Aggregators
                 return new List<Episode> { numberedTitleEpisode };
             }
 
+            return GetBaselineEpisodes(localEpisode);
+        }
+
+        private List<Episode> GetBaselineEpisodes(LocalEpisode localEpisode)
+        {
             var bestEpisodeInfoForEpisodes = GetBestEpisodeInfo(localEpisode);
             var isMediaFile = MediaFileExtensions.Extensions.Contains(Path.GetExtension(localEpisode.Path));
 
@@ -153,6 +159,19 @@ namespace NzbDrone.Core.MediaFiles.EpisodeImport.Aggregation.Aggregators
             if (mappedEpisodes.Count != 1 || mappedEpisodes[0].Id != matches[0].Id)
             {
                 return null;
+            }
+
+            try
+            {
+                var baselineEpisodes = GetBaselineEpisodes(localEpisode);
+                if (baselineEpisodes.Count != 1 || baselineEpisodes[0].Id != matches[0].Id)
+                {
+                    localEpisode.DevImportFix = "numbered-title";
+                }
+            }
+            catch (Exception)
+            {
+                // Attribution must not break a validated import; an unknown baseline earns no credit.
             }
 
             localEpisode.FileEpisodeInfo = parsedInfo;

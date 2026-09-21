@@ -44,6 +44,7 @@ namespace NzbDrone.Core.MediaFiles.EpisodeImport.Specifications
             {
                 if (MatchesRestoredEpisodePair(localEpisode, downloadClientItem))
                 {
+                    localEpisode.DevImportFix = "restored-episode-pair";
                     return ImportSpecDecision.Accept();
                 }
 

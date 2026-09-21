@@ -215,6 +215,7 @@ namespace NzbDrone.Core.History
                     Languages = message.EpisodeInfo.Languages
                 };
 
+                history.Data.Add("DevMetricsVersion", "1");
                 history.Data.Add("FileId", message.ImportedEpisode.Id.ToString());
                 history.Data.Add("DroppedPath", message.EpisodeInfo.Path);
                 history.Data.Add("ImportedPath", Path.Combine(message.EpisodeInfo.Series.Path, message.ImportedEpisode.RelativePath));
@@ -226,7 +227,17 @@ namespace NzbDrone.Core.History
                 history.Data.Add("IndexerFlags", message.ImportedEpisode.IndexerFlags.ToString());
                 history.Data.Add("ReleaseType", message.ImportedEpisode.ReleaseType.ToString());
 
+                if (message.EpisodeInfo.DevImportFix.IsNotNullOrWhiteSpace())
+                {
+                    history.Data.Add("DevImportFix", message.EpisodeInfo.DevImportFix);
+                }
+
                 _historyRepository.Insert(history);
+
+                if (history.Data.TryGetValue("DevImportFix", out var fix))
+                {
+                    _logger.Info("DevBenefit outcome=imported fix={0} episodeId={1} historyId={2} downloadId={3}", fix, episode.Id, history.Id, downloadId);
+                }
             }
         }
 
@@ -252,7 +263,18 @@ namespace NzbDrone.Core.History
                 history.Data.Add("ReleaseGroup", message.TrackedDownload?.RemoteEpisode?.ParsedEpisodeInfo?.ReleaseGroup);
                 history.Data.Add("Size", message.TrackedDownload?.DownloadItem.TotalSize.ToString());
 
+                if (message.TrackedDownload?.PreserveFilesOnFailure == true)
+                {
+                    history.Data.Add("DevMetricsVersion", "1");
+                    history.Data.Add("DevRecovery", "minimum-format-score");
+                }
+
                 _historyRepository.Insert(history);
+
+                if (history.Data.TryGetValue("DevRecovery", out var recovery))
+                {
+                    _logger.Info("DevBenefit outcome=score-recovery fix={0} episodeId={1} historyId={2} downloadId={3}", recovery, episodeId, history.Id, message.DownloadId);
+                }
             }
         }
 
