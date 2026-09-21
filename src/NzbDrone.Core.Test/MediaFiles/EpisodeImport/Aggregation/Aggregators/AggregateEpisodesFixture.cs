@@ -4,6 +4,7 @@ using FizzWare.NBuilder;
 using Moq;
 using NUnit.Framework;
 using NzbDrone.Common.Extensions;
+using NzbDrone.Core.IndexerSearch.Definitions;
 using NzbDrone.Core.MediaFiles.EpisodeImport.Aggregation.Aggregators;
 using NzbDrone.Core.Parser;
 using NzbDrone.Core.Parser.Model;
@@ -156,6 +157,162 @@ namespace NzbDrone.Core.Test.MediaFiles.EpisodeImport.Aggregation.Aggregators
 
             Mocker.GetMock<IParsingService>()
                   .Verify(v => v.GetEpisodes(specialEpisodeInfo, _series, localEpisode.SceneSource, null), Times.Once());
+        }
+
+        private LocalEpisode NumberedTitleEpisode(string fileName = "01. The Hedge Knight.mkv")
+        {
+            _series.SeriesType = SeriesTypes.Standard;
+            _series.UseSceneNumbering = false;
+
+            var episodes = new List<Episode>
+            {
+                new Episode { Id = 1, SeasonNumber = 1, EpisodeNumber = 1, Title = "The Hedge Knight" },
+                new Episode { Id = 2, SeasonNumber = 1, EpisodeNumber = 2, Title = "Hard Salt Beef" }
+            };
+
+            Mocker.GetMock<IEpisodeService>()
+                  .Setup(s => s.GetEpisodesBySeason(_series.Id, 1))
+                  .Returns(episodes);
+            Mocker.GetMock<IParsingService>()
+                  .Setup(s => s.GetEpisodes(It.Is<ParsedEpisodeInfo>(info => !info.FullSeason), _series, It.IsAny<bool>(), null))
+                  .Returns<ParsedEpisodeInfo, Series, bool, SearchCriteriaBase>(
+                      (info, series, sceneSource, criteria) => episodes.Where(e => info.EpisodeNumbers.Contains(e.EpisodeNumber)).ToList());
+
+            var path = (@"C:\Downloads\A.Knight.of.the.Seven.Kingdoms.S01.1080p.WEB-DL\" + fileName).AsOsAgnostic();
+
+            return new LocalEpisode
+            {
+                Series = _series,
+                Path = path,
+                FileEpisodeInfo = Parser.Parser.ParsePath(path),
+                FolderEpisodeInfo = Parser.Parser.ParseTitle("A.Knight.of.the.Seven.Kingdoms.S01.1080p.WEB-DL"),
+                DownloadClientEpisodeInfo = Parser.Parser.ParseTitle("A.Knight.of.the.Seven.Kingdoms.S01.1080p.WEB-DL"),
+                OtherVideoFiles = true,
+                SceneSource = true
+            };
+        }
+
+        [TestCase("01. The Hedge Knight.mkv", 1)]
+        [TestCase("02. Hard Salt Beef.mkv", 2)]
+        [TestCase("01 - the_hedge_knight.mkv", 1)]
+        public void should_match_number_and_unique_title_in_known_season(string fileName, int number)
+        {
+            var localEpisode = NumberedTitleEpisode(fileName);
+            var originalInfo = localEpisode.FileEpisodeInfo;
+
+            Subject.Aggregate(localEpisode, null);
+
+            Assert.That(localEpisode.Episodes.Select(e => e.EpisodeNumber), Is.EqualTo(new[] { number }));
+            Assert.That(localEpisode.FileEpisodeInfo.FullSeason, Is.False);
+            Assert.That(localEpisode.FileEpisodeInfo.EpisodeNumbers, Is.EqualTo(new[] { number }));
+            Assert.That(localEpisode.FileEpisodeInfo.Quality, Is.EqualTo(originalInfo.Quality));
+            Assert.That(originalInfo.FullSeason, Is.True, "Do not mutate shared folder/download parsing results");
+            Mocker.GetMock<IParsingService>().Verify(s => s.GetEpisodes(localEpisode.FileEpisodeInfo, _series, localEpisode.SceneSource, null), Times.Once());
+        }
+
+        [Test]
+        public void should_match_when_file_parse_is_missing()
+        {
+            var localEpisode = NumberedTitleEpisode();
+            localEpisode.FileEpisodeInfo = null;
+
+            Subject.Aggregate(localEpisode, null);
+
+            Assert.That(localEpisode.Episodes.Single().Id, Is.EqualTo(1));
+            Assert.That(localEpisode.FileEpisodeInfo.EpisodeNumbers, Is.EqualTo(new[] { 1 }));
+        }
+
+        [TestCase("02. The Hedge Knight.mkv")]
+        [TestCase("01. Unknown Title.mkv")]
+        [TestCase("01. Hedge Knight.mkv")]
+        [TestCase("01. The Hedge Knight Part 2.mkv")]
+        [TestCase("01. The Hedge Knight (2).mkv")]
+        [TestCase("00. The Hedge Knight.mkv")]
+        [TestCase("The Hedge Knight.mkv")]
+        [TestCase("01. The Hedge Knight.srt")]
+        public void should_not_guess_from_number_or_title_alone(string fileName)
+        {
+            var localEpisode = NumberedTitleEpisode(fileName);
+            var originalInfo = localEpisode.FileEpisodeInfo;
+
+            Subject.Aggregate(localEpisode, null);
+
+            Assert.That(localEpisode.FileEpisodeInfo, Is.SameAs(originalInfo));
+        }
+
+        [TestCase("conflicting_season")]
+        [TestCase("conflicting_episode")]
+        [TestCase("multi_season")]
+        [TestCase("special")]
+        [TestCase("anime")]
+        [TestCase("daily")]
+        [TestCase("scene_numbering")]
+        [TestCase("no_season")]
+        [TestCase("already_parsed")]
+        public void should_not_override_ambiguous_or_unsupported_context(string reason)
+        {
+            var localEpisode = NumberedTitleEpisode();
+
+            switch (reason)
+            {
+                case "conflicting_season": localEpisode.DownloadClientEpisodeInfo.SeasonNumber = 2; break;
+                case "conflicting_episode": localEpisode.DownloadClientEpisodeInfo.EpisodeNumbers = new[] { 2 }; break;
+                case "multi_season": localEpisode.DownloadClientEpisodeInfo.IsMultiSeason = true; break;
+                case "special": localEpisode.FolderEpisodeInfo.SeasonNumber = 0; break;
+                case "anime": _series.SeriesType = SeriesTypes.Anime; break;
+                case "daily": _series.SeriesType = SeriesTypes.Daily; break;
+                case "scene_numbering": _series.UseSceneNumbering = true; break;
+                case "no_season":
+                    localEpisode.FileEpisodeInfo = null;
+                    localEpisode.FolderEpisodeInfo = null;
+                    localEpisode.DownloadClientEpisodeInfo = null;
+                    break;
+                case "already_parsed": localEpisode.FileEpisodeInfo = Parser.Parser.ParseTitle("Series.Title.S01E02"); break;
+            }
+
+            var originalInfo = localEpisode.FileEpisodeInfo;
+            Subject.Aggregate(localEpisode, null);
+
+            Assert.That(localEpisode.FileEpisodeInfo, Is.SameAs(originalInfo));
+        }
+
+        [Test]
+        public void should_not_match_duplicate_normalized_titles()
+        {
+            var localEpisode = NumberedTitleEpisode();
+            var originalInfo = localEpisode.FileEpisodeInfo;
+            Mocker.GetMock<IEpisodeService>()
+                  .Setup(s => s.GetEpisodesBySeason(_series.Id, 1))
+                  .Returns(new List<Episode>
+                  {
+                      new Episode { EpisodeNumber = 1, Title = "The Hedge Knight" },
+                      new Episode { EpisodeNumber = 2, Title = "The-Hedge-Knight" }
+                  });
+
+            Subject.Aggregate(localEpisode, null);
+
+            Assert.That(localEpisode.FileEpisodeInfo, Is.SameAs(originalInfo));
+        }
+
+        [Test]
+        public void should_not_bypass_scene_alias_season_mapping_when_scene_numbering_is_disabled()
+        {
+            var localEpisode = NumberedTitleEpisode();
+            var originalInfo = localEpisode.FileEpisodeInfo;
+            Mocker.GetMock<IParsingService>()
+                  .Setup(s => s.GetEpisodes(It.Is<ParsedEpisodeInfo>(info => !info.FullSeason), _series, true, null))
+                  .Returns(new List<Episode>
+                  {
+                      new Episode { Id = 3, SeasonNumber = 2, EpisodeNumber = 1, Title = "The Hedge Knight" }
+                  });
+
+            Subject.Aggregate(localEpisode, null);
+
+            Assert.That(_series.UseSceneNumbering, Is.False);
+            Assert.That(localEpisode.FileEpisodeInfo, Is.SameAs(originalInfo));
+            Assert.That(localEpisode.FileEpisodeInfo.FullSeason, Is.True);
+            Mocker.GetMock<IParsingService>()
+                  .Verify(s => s.GetEpisodes(It.Is<ParsedEpisodeInfo>(info => !info.FullSeason && info.EpisodeNumbers.Single() == 1), _series, true, null), Times.Once());
         }
     }
 }

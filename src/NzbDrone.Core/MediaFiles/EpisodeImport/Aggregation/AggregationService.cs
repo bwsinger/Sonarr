@@ -8,6 +8,7 @@ using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Download;
 using NzbDrone.Core.MediaFiles.EpisodeImport.Aggregation.Aggregators;
 using NzbDrone.Core.MediaFiles.MediaInfo;
+using NzbDrone.Core.Parser;
 using NzbDrone.Core.Parser.Model;
 
 namespace NzbDrone.Core.MediaFiles.EpisodeImport.Aggregation
@@ -23,18 +24,21 @@ namespace NzbDrone.Core.MediaFiles.EpisodeImport.Aggregation
         private readonly IDiskProvider _diskProvider;
         private readonly IVideoFileInfoReader _videoFileInfoReader;
         private readonly IConfigService _configService;
+        private readonly IParsingService _parsingService;
         private readonly Logger _logger;
 
         public AggregationService(IEnumerable<IAggregateLocalEpisode> augmenters,
                                  IDiskProvider diskProvider,
                                  IVideoFileInfoReader videoFileInfoReader,
                                  IConfigService configService,
+                                 IParsingService parsingService,
                                  Logger logger)
         {
             _augmenters = augmenters.OrderBy(a => a.Order).ToList();
             _diskProvider = diskProvider;
             _videoFileInfoReader = videoFileInfoReader;
             _configService = configService;
+            _parsingService = parsingService;
             _logger = logger;
         }
 
@@ -48,7 +52,15 @@ namespace NzbDrone.Core.MediaFiles.EpisodeImport.Aggregation
             {
                 if (isMediaFile)
                 {
-                    throw new AugmentingFailedException("Unable to parse episode info from path: {0}", localEpisode.Path);
+                    if (localEpisode.Series != null)
+                    {
+                        localEpisode.FileEpisodeInfo = _parsingService.ParseSpecialEpisodeTitle(null, Path.GetFileNameWithoutExtension(localEpisode.Path), localEpisode.Series);
+                    }
+
+                    if (localEpisode.FileEpisodeInfo == null)
+                    {
+                        throw new AugmentingFailedException("Unable to parse episode info from path: {0}", localEpisode.Path);
+                    }
                 }
             }
 

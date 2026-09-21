@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Download;
 using NzbDrone.Core.Parser;
@@ -13,10 +15,12 @@ namespace NzbDrone.Core.MediaFiles.EpisodeImport.Aggregation.Aggregators
         public int Order => 1;
 
         private readonly IParsingService _parsingService;
+        private readonly IEpisodeService _episodeService;
 
-        public AggregateEpisodes(IParsingService parsingService)
+        public AggregateEpisodes(IParsingService parsingService, IEpisodeService episodeService)
         {
             _parsingService = parsingService;
+            _episodeService = episodeService;
         }
 
         public LocalEpisode Aggregate(LocalEpisode localEpisode, DownloadClientItem downloadClientItem)
@@ -66,6 +70,13 @@ namespace NzbDrone.Core.MediaFiles.EpisodeImport.Aggregation.Aggregators
 
         private List<Episode> GetEpisodes(LocalEpisode localEpisode)
         {
+            var numberedTitleEpisode = GetNumberedTitleEpisode(localEpisode);
+
+            if (numberedTitleEpisode != null)
+            {
+                return new List<Episode> { numberedTitleEpisode };
+            }
+
             var bestEpisodeInfoForEpisodes = GetBestEpisodeInfo(localEpisode);
             var isMediaFile = MediaFileExtensions.Extensions.Contains(Path.GetExtension(localEpisode.Path));
 
@@ -92,6 +103,66 @@ namespace NzbDrone.Core.MediaFiles.EpisodeImport.Aggregation.Aggregators
             }
 
             return new List<Episode>();
+        }
+
+        private Episode GetNumberedTitleEpisode(LocalEpisode localEpisode)
+        {
+            if (localEpisode.Series.SeriesType != SeriesTypes.Standard || localEpisode.Series.UseSceneNumbering ||
+                (localEpisode.FileEpisodeInfo != null && !localEpisode.FileEpisodeInfo.FullSeason) ||
+                !MediaFileExtensions.Extensions.Contains(Path.GetExtension(localEpisode.Path)))
+            {
+                return null;
+            }
+
+            var match = Regex.Match(Path.GetFileNameWithoutExtension(localEpisode.Path), @"\A(?<number>[0-9]{1,3})[ ._-]+(?<title>\S.*)\z");
+
+            if (!match.Success || !int.TryParse(match.Groups["number"].Value, out var number) || number == 0)
+            {
+                return null;
+            }
+
+            var contexts = new[] { localEpisode.FileEpisodeInfo, localEpisode.FolderEpisodeInfo, localEpisode.DownloadClientEpisodeInfo }
+                .Where(info => info != null).ToList();
+
+            if (contexts.Empty() || contexts.Any(info => info.SeasonNumber <= 0 || info.IsMultiSeason || info.IsDaily ||
+                    info.IsAbsoluteNumbering || info.Special || info.IsSeasonExtra ||
+                    (info.EpisodeNumbers.Any() && !info.EpisodeNumbers.Contains(number))) ||
+                contexts.Select(info => info.SeasonNumber).Distinct().Count() != 1)
+            {
+                return null;
+            }
+
+            // Keep part numbers and articles: the existing title normalizers intentionally discard them.
+            var title = NormalizeNumberedTitle(match.Groups["title"].Value);
+            var matches = _episodeService.GetEpisodesBySeason(localEpisode.Series.Id, contexts[0].SeasonNumber)
+                .Where(episode => !string.IsNullOrWhiteSpace(episode.Title) && NormalizeNumberedTitle(episode.Title) == title)
+                .ToList();
+
+            if (title.Length == 0 || matches.Count != 1 || matches[0].EpisodeNumber != number)
+            {
+                return null;
+            }
+
+            var parsedInfo = contexts[0].JsonClone();
+            parsedInfo.FullSeason = false;
+            parsedInfo.EpisodeNumbers = new[] { number };
+
+            // Scene-title aliases can remap seasons even when UseSceneNumbering is disabled.
+            var mappedEpisodes = _parsingService.GetEpisodes(parsedInfo, localEpisode.Series, localEpisode.SceneSource);
+
+            if (mappedEpisodes.Count != 1 || mappedEpisodes[0].Id != matches[0].Id)
+            {
+                return null;
+            }
+
+            localEpisode.FileEpisodeInfo = parsedInfo;
+
+            return matches[0];
+        }
+
+        private static string NormalizeNumberedTitle(string title)
+        {
+            return new string(title.Where(char.IsLetterOrDigit).ToArray()).ToUpperInvariant();
         }
 
         private bool PreferOtherEpisodeInfo(ParsedEpisodeInfo fileEpisodeInfo, ParsedEpisodeInfo otherEpisodeInfo)
