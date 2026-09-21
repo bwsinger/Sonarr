@@ -165,3 +165,6 @@ src/.idea/
 
 # Ignore Jetbrains IntelliJ Workspace Directories
 .idea/
+
+# Local dev image artifacts
+.dev-build/
