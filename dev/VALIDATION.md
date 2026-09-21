@@ -19,3 +19,17 @@ DOTNET_PROCESSOR_COUNT=2 "$HOME/.local/share/arr-dev-dotnet/dotnet" test \
   -p:UseSharedCompilation=false \
   --filter 'FullyQualifiedName~MediaFiles.EpisodeImport|FullyQualifiedName~Download'
 ```
+
+## Queue-derived regressions — 2026-09-21
+
+- Audited every queued import failure and all five completed qBittorrent
+  torrents. Three G66 adjacent episode pairs had punctuation-stripped indexer
+  titles; actual torrent ranges and individual filenames were intact.
+- Added guarded pair reconciliation, retaining grab history and upgrade checks.
+  Trek S04E07's inferior score remains a valid rejection.
+- Enabled the existing known-special title lookup before all-null aggregation
+  rejection, with Sherlock's actual filename as a regression example.
+- Added a real EpisodeService title-matching case alongside aggregation tests.
+- Two independent critical reviews finished clean.
+- Import/parser/title-matching tests: 1,803 passed, 3 skipped, zero failures.
+  Filter: `FullyQualifiedName~MediaFiles.EpisodeImport|FullyQualifiedName~ParserTests|FullyQualifiedName~FindEpisodeByTitleFixture`.

@@ -44,6 +44,14 @@ only covers part of a feature, keep and document only the remaining difference.
   number is correct. Jentry's malformed pack imported suffix Episode 10 as E01
   upstream; the custom regression must prevent repeating that assignment.
   This guard does not retroactively repair existing library files.
+- When all numbered parses fail, try the existing special-episode title matcher
+  before rejecting the media file. This enables known titles such as Sherlock's
+  `The Abominable Bride`; unknown titles still fail normally.
+- Reconcile a punctuation-stripped grabbed title (`S01E07 08`) only when the
+  same torrent's explicit adjacent pair (`S01E07-08`), full release title,
+  individually numbered filename, and normal database mappings agree. Preserve
+  grabbed history and all other import checks. Do not globally interpret a bare
+  numeric episode title as a range, or expand unrelated/scene/season packs.
 
 - Partial-season packs sharing a directory remain a separate limitation.
   Do not mark them completed merely to clear the queue: Cleanuparr may delete

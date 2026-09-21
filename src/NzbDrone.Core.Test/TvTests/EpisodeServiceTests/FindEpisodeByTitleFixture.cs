@@ -84,6 +84,7 @@ namespace NzbDrone.Core.Test.TvTests.EpisodeServiceTests
         [TestCase("Who.1999.S11E00.Twice.Upon.A.Time.1080p.AMZN.WEB-DL.DDP5.1.H.264-NTb", "Twice Upon A Time", new[] { "Last Christmas" })]
         [TestCase("Who.1999.S11E00.Twice.Upon.A.Time.Christmas.Special.720p.HDTV.x264-FoV", "Twice Upon A Time", new[] { "Last Christmas" })]
         [TestCase("Who.1999.S10E00.Christmas.Special.The.Return.Of.Doctor.Mysterio.1080p.BluRay.x264-OUIJA", "The Return Of Doctor Mysterio", new[] { "Doctor Mysterio" })]
+        [TestCase("Sherlock The Abominable Bride (2016) 1080p BluRay H264 DolbyD 5.1 + nickarad", "The Abominable Bride", new[] { "Sherlock Uncovered", "Unlocking Sherlock (2013)", "Many Happy Returns" })]
         public void should_handle_special(string releaseTitle, string expectedTitle, string[] rejectedTitles)
         {
             GivenEpisodesWithTitles(rejectedTitles.Concat(new[] { expectedTitle }).ToArray());
