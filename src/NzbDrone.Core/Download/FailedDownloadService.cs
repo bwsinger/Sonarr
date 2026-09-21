@@ -107,7 +107,11 @@ namespace NzbDrone.Core.Download
 
             var failure = "Failed download detected";
 
-            if (trackedDownload.DownloadItem.IsEncrypted)
+            if (trackedDownload.PreserveFilesOnFailure)
+            {
+                failure = "Downloaded files are below the quality profile minimum Custom Format score";
+            }
+            else if (trackedDownload.DownloadItem.IsEncrypted)
             {
                 failure = "Encrypted download detected";
             }

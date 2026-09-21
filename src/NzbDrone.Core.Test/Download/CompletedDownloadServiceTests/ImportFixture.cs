@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using FizzWare.NBuilder;
 using FluentAssertions;
 using Moq;
@@ -7,6 +8,7 @@ using NzbDrone.Common.Disk;
 using NzbDrone.Core.Download;
 using NzbDrone.Core.Download.TrackedDownloads;
 using NzbDrone.Core.History;
+using NzbDrone.Core.Indexers;
 using NzbDrone.Core.MediaFiles;
 using NzbDrone.Core.MediaFiles.EpisodeImport;
 using NzbDrone.Core.Messaging.Events;
@@ -362,6 +364,125 @@ namespace NzbDrone.Core.Test.Download.CompletedDownloadServiceTests
             Subject.Import(_trackedDownload);
 
             AssertImported();
+        }
+
+        [Test]
+        public void should_not_automatically_fail_usenet_download()
+        {
+            GivenBelowMinimumDownloads();
+            _trackedDownload.Protocol = DownloadProtocol.Usenet;
+
+            Subject.Import(_trackedDownload);
+
+            _trackedDownload.State.Should().NotBe(TrackedDownloadState.FailedPending);
+            _trackedDownload.PreserveFilesOnFailure.Should().BeFalse();
+        }
+
+        private List<ImportResult> GivenBelowMinimumDownloads()
+        {
+            _trackedDownload.PreserveFilesOnFailure = false;
+            _trackedDownload.Protocol = DownloadProtocol.Torrent;
+            _trackedDownload.RemoteEpisode.Episodes = new List<Episode> { _episode1, _episode2 };
+            var results = _trackedDownload.RemoteEpisode.Episodes.Select(episode => new ImportResult(
+                new ImportDecision(new LocalEpisode { Path = $"/downloads/{episode.Id}.mkv", Episodes = { episode } },
+                    new ImportRejection(ImportRejectionReason.BelowMinimumCustomFormatScore, "Below minimum")), "Below minimum")).ToList();
+
+            Mocker.GetMock<IDownloadedEpisodesImportService>()
+                .Setup(s => s.ProcessPath(It.IsAny<string>(), ImportMode.Auto, It.IsAny<Series>(), It.IsAny<DownloadClientItem>()))
+                .Returns(results);
+            Mocker.GetMock<IHistoryService>()
+                .Setup(s => s.FindByDownloadId(It.IsAny<string>()))
+                .Returns(_trackedDownload.RemoteEpisode.Episodes.Select(episode => new EpisodeHistory
+                {
+                    EpisodeId = episode.Id,
+                    SeriesId = _trackedDownload.RemoteEpisode.Series.Id,
+                    EventType = EpisodeHistoryEventType.Grabbed
+                }).ToList());
+            return results;
+        }
+
+        [Test]
+        public void should_fail_all_below_minimum_pack_and_preserve_files()
+        {
+            GivenBelowMinimumDownloads();
+
+            Subject.Import(_trackedDownload);
+
+            _trackedDownload.State.Should().Be(TrackedDownloadState.FailedPending);
+            _trackedDownload.PreserveFilesOnFailure.Should().BeTrue();
+            _trackedDownload.DownloadItem.CanBeRemoved.Should().BeTrue();
+        }
+
+        [Test]
+        public void should_not_fail_ungrabbed_download()
+        {
+            GivenBelowMinimumDownloads();
+            Mocker.GetMock<IHistoryService>().Setup(s => s.FindByDownloadId(It.IsAny<string>()))
+                .Returns(new List<EpisodeHistory>());
+
+            Subject.Import(_trackedDownload);
+
+            _trackedDownload.State.Should().NotBe(TrackedDownloadState.FailedPending);
+            _trackedDownload.PreserveFilesOnFailure.Should().BeFalse();
+        }
+
+        [TestCase(ImportRejectionReason.UnableToParse)]
+        [TestCase(ImportRejectionReason.NotCustomFormatUpgrade)]
+        [TestCase(ImportRejectionReason.EpisodeAlreadyImported)]
+        [TestCase(ImportRejectionReason.FileLocked)]
+        public void should_not_fail_pack_with_other_rejections(ImportRejectionReason reason)
+        {
+            var results = GivenBelowMinimumDownloads();
+            results[0] = new ImportResult(new ImportDecision(results[0].ImportDecision.LocalEpisode,
+                new ImportRejection(reason, "Other reason")), "Other reason");
+
+            Subject.Import(_trackedDownload);
+
+            _trackedDownload.State.Should().NotBe(TrackedDownloadState.FailedPending);
+        }
+
+        [Test]
+        public void should_not_fail_pack_with_successful_import()
+        {
+            var results = GivenBelowMinimumDownloads();
+            results[0] = new ImportResult(new ImportDecision(results[0].ImportDecision.LocalEpisode));
+
+            Subject.Import(_trackedDownload);
+
+            _trackedDownload.State.Should().NotBe(TrackedDownloadState.FailedPending);
+        }
+
+        [Test]
+        public void should_not_fail_pack_with_missing_expected_episode()
+        {
+            var results = GivenBelowMinimumDownloads();
+            results.RemoveAt(0);
+
+            Subject.Import(_trackedDownload);
+
+            _trackedDownload.State.Should().NotBe(TrackedDownloadState.FailedPending);
+        }
+
+        [Test]
+        public void should_not_fail_incomplete_download()
+        {
+            GivenBelowMinimumDownloads();
+            _trackedDownload.DownloadItem.Status = DownloadItemStatus.Downloading;
+
+            Subject.Import(_trackedDownload);
+
+            _trackedDownload.State.Should().NotBe(TrackedDownloadState.FailedPending);
+        }
+
+        [Test]
+        public void should_not_fail_library_files()
+        {
+            var results = GivenBelowMinimumDownloads();
+            results[0].ImportDecision.LocalEpisode.ExistingFile = true;
+
+            Subject.Import(_trackedDownload);
+
+            _trackedDownload.State.Should().NotBe(TrackedDownloadState.FailedPending);
         }
 
         private void AssertNotImported()
