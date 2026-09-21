@@ -61,6 +61,8 @@ namespace NzbDrone.Core.MediaFiles.EpisodeImport.Aggregation
                     {
                         throw new AugmentingFailedException("Unable to parse episode info from path: {0}", localEpisode.Path);
                     }
+
+                    localEpisode.DevImportFix = "special-title";
                 }
             }
 

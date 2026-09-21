@@ -527,6 +527,9 @@ namespace NzbDrone.Core.MediaFiles.EpisodeImport.Manual
                 // Augment episode file so imported files have all additional information an automatic import would
                 localEpisode = _aggregationService.Augment(localEpisode, trackedDownload?.DownloadItem);
 
+                // User-approved imports must not be counted as automatic parser recoveries.
+                localEpisode.DevImportFix = null;
+
                 // Apply the user-chosen values.
                 localEpisode.Series = series;
                 localEpisode.Episodes = episodes;

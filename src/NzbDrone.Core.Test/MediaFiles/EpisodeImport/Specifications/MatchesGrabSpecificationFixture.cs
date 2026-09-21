@@ -45,6 +45,7 @@ namespace NzbDrone.Core.Test.MediaFiles.EpisodeImport.Specifications
                                                  .With(l => l.Path = @"C:\Test\Unsorted\Series.Title.S01E01.720p.HDTV-Sonarr\S01E05.mkv".AsOsAgnostic())
                                                  .With(l => l.Episodes = new List<Episode> { _episode1 })
                                                  .With(l => l.Release = null)
+                                                 .With(l => l.DevImportFix = null)
                                                  .Build();
 
             _downloadClientItem = Builder<DownloadClientItem>.CreateNew().Build();
@@ -114,6 +115,7 @@ namespace NzbDrone.Core.Test.MediaFiles.EpisodeImport.Specifications
             GivenHistoryForEpisodes(_episode2);
 
             Subject.IsSatisfiedBy(_localEpisode, _downloadClientItem).Accepted.Should().BeFalse();
+            _localEpisode.DevImportFix.Should().BeNull();
         }
 
         [Test]
@@ -122,6 +124,7 @@ namespace NzbDrone.Core.Test.MediaFiles.EpisodeImport.Specifications
             GivenHistoryForEpisodes(_episode2, _episode3);
 
             Subject.IsSatisfiedBy(_localEpisode, _downloadClientItem).Accepted.Should().BeFalse();
+            _localEpisode.DevImportFix.Should().BeNull();
         }
 
         private void GivenPunctuationStrippedPair(string title = "Stuart Fails To Save The Universe", int season = 1, int first = 7)
@@ -158,6 +161,7 @@ namespace NzbDrone.Core.Test.MediaFiles.EpisodeImport.Specifications
 
             Subject.IsSatisfiedBy(_localEpisode, _downloadClientItem).Accepted.Should().BeTrue();
             _localEpisode.Release.EpisodeIds.Should().Equal(_episode1.Id);
+            _localEpisode.DevImportFix.Should().Be("restored-episode-pair");
         }
 
         [TestCase("different_title")]
@@ -199,6 +203,7 @@ namespace NzbDrone.Core.Test.MediaFiles.EpisodeImport.Specifications
             }
 
             Subject.IsSatisfiedBy(_localEpisode, _downloadClientItem).Accepted.Should().BeFalse();
+            _localEpisode.DevImportFix.Should().BeNull();
         }
 
         [Test]

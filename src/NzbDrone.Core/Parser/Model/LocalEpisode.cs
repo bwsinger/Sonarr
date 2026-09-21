@@ -35,6 +35,7 @@ namespace NzbDrone.Core.Parser.Model
         public ReleaseType ReleaseType { get; set; }
         public MediaInfoModel MediaInfo { get; set; }
         public bool ExistingFile { get; set; }
+        public string DevImportFix { get; set; }
         public bool SceneSource { get; set; }
         public string ReleaseGroup { get; set; }
         public string ReleaseHash { get; set; }
