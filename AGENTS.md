@@ -53,6 +53,21 @@ only covers part of a feature, keep and document only the remaining difference.
   grabbed history and all other import checks. Do not globally interpret a bare
   numeric episode title as a range, or expand unrelated/scene/season packs.
 
+- Durable benefit attribution uses existing episode history `Data`, without a
+  schema migration. Every successful new-download import records
+  `DevMetricsVersion=1`; only patch-dependent automatic imports also record
+  `DevImportFix` (`numbered-title`, `special-title`, or `restored-episode-pair`).
+  Numbered-title recovery must differ from upstream's baseline episode mapping
+  to count. Explicit manual overrides clear attribution; rescans do not count.
+  One successful history row and `DevBenefit outcome=imported` log per episode
+  permit import-event and distinct-episode counts. Count score-based failures
+  separately via `DevRecovery=minimum-format-score` and
+  `DevBenefit outcome=score-recovery`, deduplicating torrents by download ID;
+  these are recovery actions, not evidence of successful replacement imports.
+  Metrics describe observed patch-assisted imports since instrumentation, not
+  an A/B experiment or proof that regressions never occur. Keep metric tags in
+  sync when replacing patches with upstream equivalents.
+
 - Partial-season packs sharing a directory remain a separate limitation.
   Do not mark them completed merely to clear the queue: Cleanuparr may delete
   shared files when a torrent disappears from the Sonarr queue.

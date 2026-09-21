@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using FizzWare.NBuilder;
@@ -178,6 +179,10 @@ namespace NzbDrone.Core.Test.MediaFiles.EpisodeImport.Aggregation.Aggregators
                   .Returns<ParsedEpisodeInfo, Series, bool, SearchCriteriaBase>(
                       (info, series, sceneSource, criteria) => episodes.Where(e => info.EpisodeNumbers.Contains(e.EpisodeNumber)).ToList());
 
+            Mocker.GetMock<IParsingService>()
+                  .Setup(s => s.GetEpisodes(It.Is<ParsedEpisodeInfo>(info => info.FullSeason), _series, It.IsAny<bool>(), null))
+                  .Returns(new List<Episode>());
+
             var path = (@"C:\Downloads\A.Knight.of.the.Seven.Kingdoms.S01.1080p.WEB-DL\" + fileName).AsOsAgnostic();
 
             return new LocalEpisode
@@ -203,6 +208,7 @@ namespace NzbDrone.Core.Test.MediaFiles.EpisodeImport.Aggregation.Aggregators
             Subject.Aggregate(localEpisode, null);
 
             Assert.That(localEpisode.Episodes.Select(e => e.EpisodeNumber), Is.EqualTo(new[] { number }));
+            Assert.That(localEpisode.DevImportFix, Is.EqualTo("numbered-title"));
             Assert.That(localEpisode.FileEpisodeInfo.FullSeason, Is.False);
             Assert.That(localEpisode.FileEpisodeInfo.EpisodeNumbers, Is.EqualTo(new[] { number }));
             Assert.That(localEpisode.FileEpisodeInfo.Quality, Is.EqualTo(originalInfo.Quality));
@@ -220,6 +226,45 @@ namespace NzbDrone.Core.Test.MediaFiles.EpisodeImport.Aggregation.Aggregators
 
             Assert.That(localEpisode.Episodes.Single().Id, Is.EqualTo(1));
             Assert.That(localEpisode.FileEpisodeInfo.EpisodeNumbers, Is.EqualTo(new[] { 1 }));
+        }
+
+        [TestCase(true)]
+        [TestCase(false)]
+        public void should_not_claim_numbered_title_when_upstream_context_maps_same_episode(bool clientContext)
+        {
+            var localEpisode = NumberedTitleEpisode();
+            localEpisode.OtherVideoFiles = false;
+            var context = Parser.Parser.ParseTitle("A.Knight.of.the.Seven.Kingdoms.S01E01.1080p.WEB-DL");
+            if (clientContext)
+            {
+                localEpisode.DownloadClientEpisodeInfo = context;
+            }
+            else
+            {
+                localEpisode.FolderEpisodeInfo = context;
+            }
+
+            Subject.Aggregate(localEpisode, null);
+
+            Assert.That(localEpisode.Episodes.Single().Id, Is.EqualTo(1));
+            Assert.That(localEpisode.DevImportFix, Is.Null);
+        }
+
+        [Test]
+        public void should_preserve_numbered_title_import_without_credit_when_baseline_evaluation_fails()
+        {
+            var localEpisode = NumberedTitleEpisode();
+            localEpisode.OtherVideoFiles = false;
+            localEpisode.DownloadClientEpisodeInfo = Parser.Parser.ParseTitle("A.Knight.of.the.Seven.Kingdoms.S01E01.1080p.WEB-DL");
+            Mocker.GetMock<IParsingService>()
+                .Setup(s => s.GetEpisodes(localEpisode.DownloadClientEpisodeInfo, _series, localEpisode.SceneSource, null))
+                .Throws(new InvalidOperationException("Baseline unavailable"));
+
+            Subject.Aggregate(localEpisode, null);
+
+            Assert.That(localEpisode.Episodes.Single().Id, Is.EqualTo(1));
+            Assert.That(localEpisode.FileEpisodeInfo.EpisodeNumbers, Is.EqualTo(new[] { 1 }));
+            Assert.That(localEpisode.DevImportFix, Is.Null);
         }
 
         [TestCase("02. The Hedge Knight.mkv")]
