@@ -43,3 +43,18 @@ DOTNET_PROCESSOR_COUNT=2 "$HOME/.local/share/arr-dev-dotnet/dotnet" test \
 - Explicit manual overrides and identical upstream mappings receive no credit.
   A failed baseline comparison cannot interfere with the actual import.
 - Score-recovery events are measured separately from successful imports.
+
+## Dependency security update — 2026-10-23
+
+- 355 focused import, failure recovery, parsing/history tests passed; zero failures.
+- Full self-contained console and updater publishes each resolve their Mono
+  dependencies in one graph. This prevents separately published platform DLLs
+  from downgrading application dependencies.
+- Isolated image startup with copied SQLite configuration passed authenticated
+  system status and preserved production library counts. No network or media
+  mounts were available to the test instance.
+- Two independent review agents cleared packaging after permission, license-file
+  retention and dependency-graph corrections.
+- ImageSharp remains on the current 3.1.x release: fixed 4.1.2 requires a license.
+- Runtime updated within .NET 6 to 6.0.36; .NET 6 remains unsupported and
+  newer unfixed runtime advisories still require an upstream runtime migration.
