@@ -34,6 +34,10 @@ only covers part of a feature, keep and document only the remaining difference.
   its payload, because another torrent or the media library can share it.
   Retained rejected payloads require separate, deliberate cleanup. Never remove
   an existing library file as a side effect of rejecting a download.
+- Retry cleanup only for a current client item whose latest durable failure
+  carries `DevRecovery=minimum-format-score`. Respect failed-removal settings
+  and native seed readiness on retries; retain payload and never replay failure
+  history, blocklisting or replacement searches. New grabs/imports supersede it.
 
 - Numbered episode-title fallback: map a file such as `01. The Hedge Knight.mkv`
   only with a trusted standard-series/single-season context and an unambiguous

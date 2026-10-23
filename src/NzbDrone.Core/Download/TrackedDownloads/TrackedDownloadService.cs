@@ -90,7 +90,8 @@ namespace NzbDrone.Core.Download.TrackedDownloads
         {
             var existingItem = Find(downloadItem.DownloadId);
 
-            if (existingItem != null && existingItem.State != TrackedDownloadState.Downloading)
+            if (existingItem != null && existingItem.State != TrackedDownloadState.Downloading &&
+                existingItem.State != TrackedDownloadState.Failed)
             {
                 LogItemChange(existingItem, existingItem.DownloadItem, downloadItem);
 
@@ -100,10 +101,19 @@ namespace NzbDrone.Core.Download.TrackedDownloads
                 return existingItem;
             }
 
+            // Never cache a guessed state when durable history cannot be read.
+            var downloadHistory = _downloadHistoryService.GetLatestDownloadHistoryItem(downloadItem.DownloadId);
+            var historyItems = _historyService.FindByDownloadId(downloadItem.DownloadId)
+                .OrderByDescending(h => h.Date)
+                .ThenByDescending(h => h.Id)
+                .ToList();
+
             var trackedDownload = new TrackedDownload
             {
                 DownloadClient = downloadClient.Id,
                 DownloadItem = downloadItem,
+                ImportItem = existingItem?.ImportItem,
+                State = existingItem?.State ?? TrackedDownloadState.Downloading,
                 Protocol = downloadClient.Protocol,
                 IsTrackable = true,
                 HasNotifiedManualInteractionRequired = existingItem?.HasNotifiedManualInteractionRequired ?? false
@@ -111,9 +121,19 @@ namespace NzbDrone.Core.Download.TrackedDownloads
 
             try
             {
-                var historyItems = _historyService.FindByDownloadId(downloadItem.DownloadId)
-                    .OrderByDescending(h => h.Date)
-                    .ToList();
+                if (downloadHistory != null)
+                {
+                    var state = GetStateFromHistory(downloadHistory.EventType);
+                    trackedDownload.State = state;
+                }
+
+                // Restore terminal state and cleanup eligibility before parsing can fail.
+                var latestHistory = historyItems.FirstOrDefault();
+                trackedDownload.PreserveFilesOnFailure =
+                    downloadHistory?.EventType == DownloadHistoryEventType.DownloadFailed &&
+                    downloadHistory.DownloadClientId == downloadClient.Id &&
+                    latestHistory?.EventType == EpisodeHistoryEventType.DownloadFailed &&
+                    (latestHistory.Data.GetValueOrDefault("devRecovery") ?? latestHistory.Data.GetValueOrDefault("DevRecovery")) == "minimum-format-score";
 
                 var parsedEpisodeInfo = Parser.Parser.ParseTitle(trackedDownload.DownloadItem.Title);
 
@@ -122,17 +142,10 @@ namespace NzbDrone.Core.Download.TrackedDownloads
                     trackedDownload.RemoteEpisode = _parsingService.Map(parsedEpisodeInfo, 0, 0, null);
                 }
 
-                var downloadHistory = _downloadHistoryService.GetLatestDownloadHistoryItem(downloadItem.DownloadId);
-
-                if (downloadHistory != null)
-                {
-                    var state = GetStateFromHistory(downloadHistory.EventType);
-                    trackedDownload.State = state;
-                }
-
                 if (historyItems.Any())
                 {
                     var firstHistoryItem = historyItems.First();
+
                     var grabbedEvent = historyItems.FirstOrDefault(v => v.EventType == EpisodeHistoryEventType.Grabbed);
 
                     trackedDownload.Indexer = grabbedEvent?.Data?.GetValueOrDefault("indexer");

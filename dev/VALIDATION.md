@@ -58,3 +58,10 @@ DOTNET_PROCESSOR_COUNT=2 "$HOME/.local/share/arr-dev-dotnet/dotnet" test \
 - ImageSharp remains on the current 3.1.x release: fixed 4.1.2 requires a license.
 - Runtime updated within .NET 6 to 6.0.36; .NET 6 remains unsupported and
   newer unfixed runtime advisories still require an upstream runtime migration.
+
+- Preserved deployed payload-safe download cleanup and repaired manual override
+  context after failed-refresh/restart. Durable-history read errors leave cache
+  state unchanged so the next monitoring poll can retry.
+- Expanded validation: 1,197 tests passed, nine platform skips, zero failures.
+  Four manual-preview/direct-import cases and four cold/cached history-error
+  cases cover the two independently reported issues. Reviews cleared the fixes.
