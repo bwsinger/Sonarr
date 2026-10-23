@@ -49,5 +49,18 @@ namespace NzbDrone.Core.Test.Download.DownloadHistoryTests
             removedItems.Should().HaveCount(0);
             nonRemovedItems.Should().HaveCount(1);
         }
+
+        [Test]
+        public void should_return_newer_grab_before_failure_when_dates_match()
+        {
+            var date = System.DateTime.UtcNow;
+            var failed = new DownloadHistory { DownloadId = "hash", SourceTitle = "torrent", Date = date, EventType = DownloadHistoryEventType.DownloadFailed };
+            var regrabbed = new DownloadHistory { DownloadId = "hash", SourceTitle = "torrent", Date = date, EventType = DownloadHistoryEventType.DownloadGrabbed };
+            Db.Insert(failed);
+            Db.Insert(regrabbed);
+
+            Subject.FindByDownloadId("hash").Select(h => h.EventType)
+                .Should().Equal(DownloadHistoryEventType.DownloadGrabbed, DownloadHistoryEventType.DownloadFailed);
+        }
     }
 }

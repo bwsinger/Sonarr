@@ -38,6 +38,7 @@ namespace NzbDrone.Core.MediaFiles.EpisodeImport.Manual
         private readonly IImportApprovedEpisodes _importApprovedEpisodes;
         private readonly IAggregationService _aggregationService;
         private readonly ITrackedDownloadService _trackedDownloadService;
+        private readonly IProvideImportItemService _provideImportItemService;
         private readonly IDownloadedEpisodesImportService _downloadedEpisodesImportService;
         private readonly IMediaFileService _mediaFileService;
         private readonly ICustomFormatCalculationService _formatCalculator;
@@ -53,6 +54,7 @@ namespace NzbDrone.Core.MediaFiles.EpisodeImport.Manual
                                    IAggregationService aggregationService,
                                    IImportApprovedEpisodes importApprovedEpisodes,
                                    ITrackedDownloadService trackedDownloadService,
+                                   IProvideImportItemService provideImportItemService,
                                    IDownloadedEpisodesImportService downloadedEpisodesImportService,
                                    IMediaFileService mediaFileService,
                                    ICustomFormatCalculationService formatCalculator,
@@ -68,6 +70,7 @@ namespace NzbDrone.Core.MediaFiles.EpisodeImport.Manual
             _aggregationService = aggregationService;
             _importApprovedEpisodes = importApprovedEpisodes;
             _trackedDownloadService = trackedDownloadService;
+            _provideImportItemService = provideImportItemService;
             _downloadedEpisodesImportService = downloadedEpisodesImportService;
             _mediaFileService = mediaFileService;
             _formatCalculator = formatCalculator;
@@ -114,7 +117,7 @@ namespace NzbDrone.Core.MediaFiles.EpisodeImport.Manual
         {
             if (downloadId.IsNotNullOrWhiteSpace())
             {
-                var trackedDownload = _trackedDownloadService.Find(downloadId);
+                var trackedDownload = GetTrackedDownload(downloadId);
 
                 if (trackedDownload == null)
                 {
@@ -256,7 +259,7 @@ namespace NzbDrone.Core.MediaFiles.EpisodeImport.Manual
 
             if (downloadId.IsNotNullOrWhiteSpace())
             {
-                var trackedDownload = _trackedDownloadService.Find(downloadId);
+                var trackedDownload = GetTrackedDownload(downloadId);
                 downloadClientItem = trackedDownload.DownloadItem;
 
                 if (series == null)
@@ -399,6 +402,11 @@ namespace NzbDrone.Core.MediaFiles.EpisodeImport.Manual
             {
                 var trackedDownload = _trackedDownloadService.Find(downloadId);
 
+                if (trackedDownload != null && trackedDownload.ImportItem == null)
+                {
+                    trackedDownload.ImportItem = _provideImportItemService.ProvideImportItem(trackedDownload.DownloadItem, null);
+                }
+
                 return trackedDownload;
             }
 
@@ -513,7 +521,7 @@ namespace NzbDrone.Core.MediaFiles.EpisodeImport.Manual
 
                 if (file.DownloadId.IsNotNullOrWhiteSpace())
                 {
-                    trackedDownload = _trackedDownloadService.Find(file.DownloadId);
+                    trackedDownload = GetTrackedDownload(file.DownloadId);
                     localEpisode.DownloadClientEpisodeInfo = trackedDownload?.RemoteEpisode?.ParsedEpisodeInfo;
                     localEpisode.DownloadItem = trackedDownload?.DownloadItem;
                 }

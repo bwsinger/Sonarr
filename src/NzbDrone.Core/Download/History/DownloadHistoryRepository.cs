@@ -20,7 +20,7 @@ namespace NzbDrone.Core.Download.History
 
         public List<DownloadHistory> FindByDownloadId(string downloadId)
         {
-            return Query(h => h.DownloadId == downloadId).OrderByDescending(h => h.Date).ToList();
+            return Query(h => h.DownloadId == downloadId).OrderByDescending(h => h.Date).ThenByDescending(h => h.Id).ToList();
         }
 
         public void DeleteBySeriesIds(List<int> seriesIds)
