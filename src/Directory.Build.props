@@ -2,6 +2,8 @@
   <!-- Common to all Sonarr Projects -->
   <PropertyGroup>
     <AnalysisLevel>6.0-all</AnalysisLevel>
+    <!-- shortcut: keep enumerable query trees; enable C# 14 after SQL builders support span conversions. -->
+    <LangVersion>13.0</LangVersion>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <ErrorOnDuplicatePublishOutputFiles>false</ErrorOnDuplicatePublishOutputFiles>
