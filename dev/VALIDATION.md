@@ -14,7 +14,7 @@ Run from the repository root (matching SDK from `global.json`):
 
 ```sh
 DOTNET_PROCESSOR_COUNT=2 "$HOME/.local/share/arr-dev-dotnet/dotnet" test \
-  src/NzbDrone.Core.Test/Sonarr.Core.Test.csproj -c Release -f net6.0 \
+  src/NzbDrone.Core.Test/Sonarr.Core.Test.csproj -c Release -f net10.0 \
   -p:SolutionDir="$PWD/src/" -p:RuntimeIdentifiers=linux-x64 \
   -p:UseSharedCompilation=false \
   --filter 'FullyQualifiedName~MediaFiles.EpisodeImport|FullyQualifiedName~Download'
