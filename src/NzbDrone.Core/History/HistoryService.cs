@@ -266,14 +266,14 @@ namespace NzbDrone.Core.History
                 if (message.TrackedDownload?.PreserveFilesOnFailure == true)
                 {
                     history.Data.Add("DevMetricsVersion", "1");
-                    history.Data.Add("DevRecovery", "minimum-format-score");
+                    history.Data.Add("DevRecovery", message.TrackedDownload.HasZeroFilledVideo ? "zero-filled-video" : "minimum-format-score");
                 }
 
                 _historyRepository.Insert(history);
 
                 if (history.Data.TryGetValue("DevRecovery", out var recovery))
                 {
-                    _logger.Info("DevBenefit outcome=score-recovery fix={0} episodeId={1} historyId={2} downloadId={3}", recovery, episodeId, history.Id, message.DownloadId);
+                    _logger.Info("DevBenefit outcome={0} fix={1} episodeId={2} historyId={3} downloadId={4}", recovery == "zero-filled-video" ? "zero-filled-recovery" : "score-recovery", recovery, episodeId, history.Id, message.DownloadId);
                 }
             }
         }

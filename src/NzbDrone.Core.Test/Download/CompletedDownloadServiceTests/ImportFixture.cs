@@ -485,6 +485,106 @@ namespace NzbDrone.Core.Test.Download.CompletedDownloadServiceTests
             _trackedDownload.State.Should().NotBe(TrackedDownloadState.FailedPending);
         }
 
+        private List<ImportResult> GivenZeroFilledDownload()
+        {
+            var results = GivenBelowMinimumDownloads();
+            _trackedDownload.RemoteEpisode.Series.Id = 42;
+            _trackedDownload.RemoteEpisode.Episodes = new List<Episode> { _episode1 };
+            var local = new LocalEpisode { Path = "/downloads/video.mkv", Size = 2 * 1024 * 1024, Series = _trackedDownload.RemoteEpisode.Series, Episodes = { _episode1 } };
+            Mocker.GetMock<IHistoryService>().Setup(s => s.FindByDownloadId(It.IsAny<string>()))
+                .Returns(new List<EpisodeHistory> { new EpisodeHistory { SeriesId = 42, EpisodeId = 1, EventType = EpisodeHistoryEventType.Grabbed } });
+            _trackedDownload.DownloadItem.RemainingSize = 0;
+            _trackedDownload.DownloadItem.OutputPath = new OsPath("/downloads");
+            _trackedDownload.HasZeroFilledVideo = false;
+            results.Clear();
+            results.Add(new ImportResult(new ImportDecision(local, new ImportRejection(ImportRejectionReason.ZeroFilledVideo, "Zero-filled video")), "Zero-filled video"));
+            return results;
+        }
+
+        [Test]
+        public void should_fail_zero_filled_video_and_preserve_payload()
+        {
+            GivenZeroFilledDownload();
+            Subject.Import(_trackedDownload);
+            _trackedDownload.State.Should().Be(TrackedDownloadState.FailedPending);
+            _trackedDownload.PreserveFilesOnFailure.Should().BeTrue();
+            _trackedDownload.HasZeroFilledVideo.Should().BeTrue();
+        }
+
+        [TestCase("library")]
+        [TestCase("outside-download")]
+        [TestCase("other-videos")]
+        [TestCase("ungrabbed")]
+        [TestCase("different-grab")]
+        [TestCase("unmapped")]
+        [TestCase("incomplete")]
+        [TestCase("remaining-bytes")]
+        [TestCase("usenet")]
+        [TestCase("multiple-results")]
+        [TestCase("multiple-episodes")]
+        public void should_leave_uncertain_zero_filled_download_for_review(string scenario)
+        {
+            var results = GivenZeroFilledDownload();
+            var local = results[0].ImportDecision.LocalEpisode;
+            switch (scenario)
+            {
+                case "library":
+                    local.ExistingFile = true;
+                    break;
+                case "outside-download":
+                    local.Path = "/library/video.mkv";
+                    break;
+                case "other-videos":
+                    local.OtherVideoFiles = true;
+                    break;
+                case "ungrabbed":
+                    Mocker.GetMock<IHistoryService>().Setup(s => s.FindByDownloadId(It.IsAny<string>())).Returns(new List<EpisodeHistory>());
+                    break;
+                case "different-grab":
+                    Mocker.GetMock<IHistoryService>().Setup(s => s.FindByDownloadId(It.IsAny<string>()))
+                        .Returns(new List<EpisodeHistory> { new EpisodeHistory { SeriesId = 43, EpisodeId = 1, EventType = EpisodeHistoryEventType.Grabbed } });
+                    break;
+                case "unmapped":
+                    local.Series = null;
+                    break;
+                case "incomplete":
+                    _trackedDownload.DownloadItem.Status = DownloadItemStatus.Downloading;
+                    break;
+                case "remaining-bytes":
+                    _trackedDownload.DownloadItem.RemainingSize = 1;
+                    break;
+                case "usenet":
+                    _trackedDownload.Protocol = DownloadProtocol.Usenet;
+                    break;
+                case "multiple-results":
+                    results.Add(results[0]);
+                    break;
+                case "multiple-episodes":
+                    _trackedDownload.RemoteEpisode.Episodes.Add(_episode2);
+                    break;
+            }
+
+            Subject.Import(_trackedDownload);
+            _trackedDownload.State.Should().NotBe(TrackedDownloadState.FailedPending);
+            _trackedDownload.PreserveFilesOnFailure.Should().BeFalse();
+        }
+
+        [TestCase(ImportRejectionReason.SampleIndeterminate)]
+        [TestCase(ImportRejectionReason.FileLocked)]
+        [TestCase(ImportRejectionReason.UnableToParse)]
+        public void should_not_fail_generic_probe_errors_or_mixed_zero_filled_rejections(ImportRejectionReason reason)
+        {
+            var results = GivenZeroFilledDownload();
+            var local = results[0].ImportDecision.LocalEpisode;
+            results[0] = new ImportResult(new ImportDecision(local, new ImportRejection(reason, "Needs review")), "Needs review");
+            Subject.Import(_trackedDownload);
+            _trackedDownload.State.Should().NotBe(TrackedDownloadState.FailedPending);
+
+            results[0] = new ImportResult(new ImportDecision(local, new ImportRejection(ImportRejectionReason.ZeroFilledVideo, "Zero-filled video"), new ImportRejection(reason, "Needs review")), "Needs review");
+            Subject.Import(_trackedDownload);
+            _trackedDownload.State.Should().NotBe(TrackedDownloadState.FailedPending);
+        }
+
         private void AssertNotImported()
         {
             Mocker.GetMock<IEventAggregator>()

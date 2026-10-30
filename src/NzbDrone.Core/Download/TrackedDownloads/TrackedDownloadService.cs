@@ -129,11 +129,13 @@ namespace NzbDrone.Core.Download.TrackedDownloads
 
                 // Restore terminal state and cleanup eligibility before parsing can fail.
                 var latestHistory = historyItems.FirstOrDefault();
+                var recovery = latestHistory?.Data.GetValueOrDefault("devRecovery") ?? latestHistory?.Data.GetValueOrDefault("DevRecovery");
                 trackedDownload.PreserveFilesOnFailure =
                     downloadHistory?.EventType == DownloadHistoryEventType.DownloadFailed &&
                     downloadHistory.DownloadClientId == downloadClient.Id &&
                     latestHistory?.EventType == EpisodeHistoryEventType.DownloadFailed &&
-                    (latestHistory.Data.GetValueOrDefault("devRecovery") ?? latestHistory.Data.GetValueOrDefault("DevRecovery")) == "minimum-format-score";
+                    (recovery == "minimum-format-score" || recovery == "zero-filled-video");
+                trackedDownload.HasZeroFilledVideo = trackedDownload.PreserveFilesOnFailure && recovery == "zero-filled-video";
 
                 var parsedEpisodeInfo = Parser.Parser.ParseTitle(trackedDownload.DownloadItem.Title);
 

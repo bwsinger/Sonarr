@@ -8,12 +8,15 @@ namespace NzbDrone.Core.MediaFiles.EpisodeImport.Specifications
     public class NotSampleSpecification : IImportDecisionEngineSpecification
     {
         private readonly IDetectSample _detectSample;
+        private readonly IZeroFilledVideoDetector _zeroFilledVideoDetector;
         private readonly Logger _logger;
 
         public NotSampleSpecification(IDetectSample detectSample,
+                                      IZeroFilledVideoDetector zeroFilledVideoDetector,
                                       Logger logger)
         {
             _detectSample = detectSample;
+            _zeroFilledVideoDetector = zeroFilledVideoDetector;
             _logger = logger;
         }
 
@@ -35,6 +38,12 @@ namespace NzbDrone.Core.MediaFiles.EpisodeImport.Specifications
                 }
                 else if (sample == DetectSampleResult.Indeterminate)
                 {
+                    if (downloadClientItem?.Status == DownloadItemStatus.Completed && downloadClientItem.RemainingSize == 0 &&
+                        _zeroFilledVideoDetector.IsZeroFilled(localEpisode.Path, localEpisode.Size))
+                    {
+                        return ImportSpecDecision.Reject(ImportRejectionReason.ZeroFilledVideo, "Video header and sampled data are zero-filled");
+                    }
+
                     return ImportSpecDecision.Reject(ImportRejectionReason.SampleIndeterminate, "Unable to determine if file is a sample");
                 }
             }

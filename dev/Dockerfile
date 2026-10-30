@@ -3,7 +3,7 @@ FROM lscr.io/linuxserver/sonarr@sha256:a5c1a5fecbef946927ab90ad68df319ac5fe64405
 ARG DEV_REVISION
 LABEL org.opencontainers.image.source="https://github.com/bwsinger/Sonarr" \
       org.opencontainers.image.revision="${DEV_REVISION}" \
-      media-server.custom-features="import-minimum-score,numbered-episode-title"
+      media-server.custom-features="zero-filled-video-recovery,import-minimum-score,numbered-episode-title"
 # Keep the upstream UI and media probe; replace the full self-contained runtime.
 RUN apk upgrade --no-cache \
     && find /app/sonarr/bin -mindepth 1 -maxdepth 1 ! -name UI ! -name ffprobe ! -name LICENSE ! -name LICENSE.md -exec rm -rf {} +
