@@ -110,9 +110,10 @@ namespace NzbDrone.Core.Test.HistoryTests
             Assert.That(rows.Select(h => h.EpisodeId).Distinct().Count(), Is.EqualTo(rows.Count));
         }
 
-        [TestCase(true)]
-        [TestCase(false)]
-        public void should_record_only_custom_score_recovery_failures(bool preserveFiles)
+        [TestCase(true, false)]
+        [TestCase(false, false)]
+        [TestCase(true, true)]
+        public void should_record_distinct_custom_recovery_failures(bool preserveFiles, bool zeroFilled)
         {
             Subject.Handle(new DownloadFailedEvent
             {
@@ -121,12 +122,14 @@ namespace NzbDrone.Core.Test.HistoryTests
                 TrackedDownload = new TrackedDownload
                 {
                     PreserveFilesOnFailure = preserveFiles,
+                    HasZeroFilledVideo = zeroFilled,
                     DownloadItem = new DownloadClientItem { DownloadClientInfo = new DownloadClientItemClientInfo() }
                 }
             });
 
             Mocker.GetMock<IHistoryRepository>().Verify(s => s.Insert(It.Is<EpisodeHistory>(h =>
                 h.Data.ContainsKey("DevRecovery") == preserveFiles &&
+                (!preserveFiles || h.Data["DevRecovery"] == (zeroFilled ? "zero-filled-video" : "minimum-format-score")) &&
                 h.Data.ContainsKey("DevMetricsVersion") == preserveFiles &&
                 !h.Data.ContainsKey("DevImportFix") && h.DownloadId == "hash")), Times.Exactly(2));
         }

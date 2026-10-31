@@ -427,7 +427,7 @@ namespace NzbDrone.Core.Test.Download.TrackedDownloads
         [TestCase(DownloadHistoryEventType.DownloadFailed, EpisodeHistoryEventType.DownloadFolderImported, true, 1, false, true)]
         [TestCase(DownloadHistoryEventType.DownloadFailed, EpisodeHistoryEventType.DownloadFailed, true, 2, false, false)]
         [TestCase(DownloadHistoryEventType.DownloadFailed, EpisodeHistoryEventType.DownloadFailed, true, 2, false, true)]
-        public void should_restore_cleanup_only_for_latest_custom_failure(DownloadHistoryEventType downloadEvent, EpisodeHistoryEventType historyEvent, bool tagged, int historyClient, bool expected, bool serialized)
+        public void should_restore_cleanup_only_for_latest_custom_failure(DownloadHistoryEventType downloadEvent, EpisodeHistoryEventType historyEvent, bool tagged, int historyClient, bool expected, bool serialized, string recovery = "minimum-format-score")
         {
             var olderFailure = new EpisodeHistory
             {
@@ -446,7 +446,7 @@ namespace NzbDrone.Core.Test.Download.TrackedDownloads
             };
             if (tagged)
             {
-                latest.Data.Add("DevRecovery", "minimum-format-score");
+                latest.Data.Add("DevRecovery", recovery);
             }
 
             if (serialized)
@@ -475,6 +475,7 @@ namespace NzbDrone.Core.Test.Download.TrackedDownloads
 
             var tracked = Subject.TrackDownload(client, item);
             tracked.PreserveFilesOnFailure.Should().Be(expected);
+            tracked.HasZeroFilledVideo.Should().Be(expected && recovery == "zero-filled-video");
             tracked.DownloadItem.CanBeRemoved.Should().BeFalse();
 
             // A new durable grab also supersedes a cached failure, without publishing another failure.
@@ -559,6 +560,16 @@ namespace NzbDrone.Core.Test.Download.TrackedDownloads
             refreshed.State.Should().Be(TrackedDownloadState.Imported);
             Mocker.GetMock<IProvideImportItemService>().Verify(s => s.ProvideImportItem(item, null), restoredAfterRestart ? Times.Once() : Times.Never());
             Mocker.GetMock<IEventAggregator>().Verify(s => s.PublishEvent(It.IsAny<DownloadCompletedEvent>()), Times.Once());
+        }
+
+        [TestCase("zero-filled-video", DownloadHistoryEventType.DownloadFailed, EpisodeHistoryEventType.DownloadFailed, 1, true)]
+        [TestCase("zero-filled-video", DownloadHistoryEventType.DownloadGrabbed, EpisodeHistoryEventType.DownloadFailed, 1, false)]
+        [TestCase("zero-filled-video", DownloadHistoryEventType.DownloadFailed, EpisodeHistoryEventType.Grabbed, 1, false)]
+        [TestCase("zero-filled-video", DownloadHistoryEventType.DownloadFailed, EpisodeHistoryEventType.DownloadFailed, 2, false)]
+        [TestCase("unknown-recovery", DownloadHistoryEventType.DownloadFailed, EpisodeHistoryEventType.DownloadFailed, 1, false)]
+        public void should_restore_only_current_known_zero_filled_recovery(string recovery, DownloadHistoryEventType downloadEvent, EpisodeHistoryEventType historyEvent, int historyClient, bool expected)
+        {
+            should_restore_cleanup_only_for_latest_custom_failure(downloadEvent, historyEvent, true, historyClient, expected, true, recovery);
         }
     }
 }

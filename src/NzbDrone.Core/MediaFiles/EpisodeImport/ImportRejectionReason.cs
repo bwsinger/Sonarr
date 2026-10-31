@@ -37,5 +37,6 @@ public enum ImportRejectionReason
     NotRevisionUpgrade,
     NotCustomFormatUpgrade,
     BelowMinimumCustomFormatScore,
-    ConflictingEpisodeNumber
+    ConflictingEpisodeNumber,
+    ZeroFilledVideo
 }

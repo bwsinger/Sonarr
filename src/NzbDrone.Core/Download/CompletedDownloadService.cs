@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using NLog;
+using NzbDrone.Common.Disk;
 using NzbDrone.Common.EnvironmentInfo;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Common.Instrumentation.Extensions;
@@ -165,7 +166,7 @@ namespace NzbDrone.Core.Download
                 return;
             }
 
-            if (RejectBelowMinimumScore(trackedDownload, importResults))
+            if (RejectUnusableDownload(trackedDownload, importResults))
             {
                 return;
             }
@@ -276,7 +277,7 @@ namespace NzbDrone.Core.Download
             return false;
         }
 
-        private bool RejectBelowMinimumScore(TrackedDownload trackedDownload, List<ImportResult> importResults)
+        private bool RejectUnusableDownload(TrackedDownload trackedDownload, List<ImportResult> importResults)
         {
             if (trackedDownload.Protocol != DownloadProtocol.Torrent ||
                 trackedDownload.DownloadItem.Status != DownloadItemStatus.Completed ||
@@ -284,9 +285,24 @@ namespace NzbDrone.Core.Download
                     r.ImportDecision.LocalEpisode?.ExistingFile != false ||
                     r.ImportDecision.LocalEpisode.Episodes.Empty() ||
                     r.ImportDecision.Rejections.Empty() ||
-                    r.ImportDecision.Rejections.Any(rejection => rejection.Reason != ImportRejectionReason.BelowMinimumCustomFormatScore)))
+                    r.ImportDecision.Rejections.Any(rejection => rejection.Reason != ImportRejectionReason.BelowMinimumCustomFormatScore &&
+                        rejection.Reason != ImportRejectionReason.ZeroFilledVideo)))
             {
                 return false;
+            }
+
+            var zeroFilled = importResults.Any(r => r.ImportDecision.Rejections.Any(rejection => rejection.Reason == ImportRejectionReason.ZeroFilledVideo));
+            if (zeroFilled)
+            {
+                var local = importResults[0].ImportDecision.LocalEpisode;
+                if (importResults.Count != 1 || trackedDownload.DownloadItem.RemainingSize != 0 ||
+                    trackedDownload.RemoteEpisode.Series.Id <= 0 || local.Series?.Id != trackedDownload.RemoteEpisode.Series.Id ||
+                    trackedDownload.RemoteEpisode.Episodes.Count != 1 || local.Episodes.Count != 1 ||
+                    local.Episodes[0].Id <= 0 || local.Episodes[0].Id != trackedDownload.RemoteEpisode.Episodes[0].Id ||
+                    local.OtherVideoFiles || !trackedDownload.ImportItem.OutputPath.Contains(new OsPath(local.Path)))
+                {
+                    return false;
+                }
             }
 
             var grabbed = _historyService.FindByDownloadId(trackedDownload.DownloadItem.DownloadId)
@@ -302,7 +318,8 @@ namespace NzbDrone.Core.Download
 
             // ponytail: retain payloads; safe deletion needs the client's full file ownership map.
             trackedDownload.PreserveFilesOnFailure = true;
-            trackedDownload.Warn("Downloaded files are below the quality profile minimum Custom Format score");
+            trackedDownload.HasZeroFilledVideo = zeroFilled;
+            trackedDownload.Warn(zeroFilled ? "Downloaded video is zero-filled (download data retained)" : "Downloaded files are below the quality profile minimum Custom Format score");
             trackedDownload.Fail();
             return true;
         }
