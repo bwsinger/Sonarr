@@ -56,6 +56,11 @@ only covers part of a feature, keep and document only the remaining difference.
   number is correct. Jentry's malformed pack imported suffix Episode 10 as E01
   upstream; the custom regression must prevent repeating that assignment.
   This guard does not retroactively repair existing library files.
+- Reject an automatic adjacent episode-range import when its filename title
+  uniquely identifies a different canonical consecutive `(1)`/`(2)` pair in
+  that season. Keep this a typed `ConflictingEpisodeNumber` rejection, requiring
+  manual verification; never renumber, auto-fail, blocklist or delete it.
+  Unknown/ambiguous titles and unsupported numbering retain existing behavior.
 - When all numbered parses fail, try the existing special-episode title matcher
   before rejecting the media file. This enables known titles such as Sherlock's
   `The Abominable Bride`; unknown titles still fail normally.

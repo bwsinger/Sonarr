@@ -85,3 +85,25 @@ DOTNET_PROCESSOR_COUNT=2 "$HOME/.local/share/arr-dev-dotnet/dotnet" test \
 - Existing ImageSharp NU1902/NU1903 advisories remain visible. Validation uses
   command-line `-p:WarningsNotAsErrors=NU1902%3BNU1903`, following the existing
   build precedent; no audit suppression or dependency change is committed.
+
+## Multipart title/range contradiction — 2026-11-03
+
+- TNG S07 RB58 mislabels the double-length finale E24/E25; canonical metadata
+  assigns it E25/E26. Import ordering selected the larger overlapping file
+  before the separate E24, leaving E26 missing and the completed pack blocked.
+- Extend the existing typed conflict rejection for an explicit adjacent range
+  whose title uniquely identifies a different consecutive metadata `(1)`/`(2)`
+  pair in the same standard-series season. Include both ranges in the message.
+  Preserve manual override; do not infer corrected identity or auto-fail it.
+- 75 focused tests passed; broader import/parser/download/history checks passed
+  2,717 tests with nine existing platform skips and no failures.
+- Two independent agents reviewed the plan and final implementation; neither
+  final implementation review found a material correctness or data-safety issue.
+- Coverage includes actual and dotted filenames, correct pairs/singles, title
+  prefixes/parts/articles, ambiguous metadata, scene aliases, alternate numbering,
+  and conflict rejections mixed with score or zero-filled recovery candidates.
+- Live recovery used tracked copy-mode manual imports of the two source files,
+  with full payload preservation and temporary completed-removal suppression.
+  Verified 26/26 S07 and 178/178 regular-series coverage, correct E24 and shared
+  E25/E26 files, complete byte equality and normal queue completion. Removed
+  only the torrent entry with `deleteFiles=false`, then restored cleanup settings.

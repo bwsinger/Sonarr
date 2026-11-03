@@ -430,6 +430,7 @@ namespace NzbDrone.Core.Test.Download.CompletedDownloadServiceTests
         [TestCase(ImportRejectionReason.NotCustomFormatUpgrade)]
         [TestCase(ImportRejectionReason.EpisodeAlreadyImported)]
         [TestCase(ImportRejectionReason.FileLocked)]
+        [TestCase(ImportRejectionReason.ConflictingEpisodeNumber)]
         public void should_not_fail_pack_with_other_rejections(ImportRejectionReason reason)
         {
             var results = GivenBelowMinimumDownloads();
@@ -572,6 +573,7 @@ namespace NzbDrone.Core.Test.Download.CompletedDownloadServiceTests
         [TestCase(ImportRejectionReason.SampleIndeterminate)]
         [TestCase(ImportRejectionReason.FileLocked)]
         [TestCase(ImportRejectionReason.UnableToParse)]
+        [TestCase(ImportRejectionReason.ConflictingEpisodeNumber)]
         public void should_not_fail_generic_probe_errors_or_mixed_zero_filled_rejections(ImportRejectionReason reason)
         {
             var results = GivenZeroFilledDownload();
