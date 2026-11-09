@@ -72,6 +72,9 @@ namespace NzbDrone.Core.Test.MediaFiles.EpisodeImport.Specifications
         [TestCase("Star Trek TNG S07E24-E25 - All Good Things 1080P x264 RB58.mp4")]
         [TestCase("Star.Trek.TNG.S07E24-25.All.Good.Things.1080p.BluRay.x264-RB58.mkv")]
         [TestCase("Star Trek TNG S07E24-E25 - All Good Things.mp4")]
+        [TestCase("Star.Trek.TNG.S07E24&25.All.Good.Things.mkv")]
+        [TestCase("Star Trek TNG S07E24 & E25 - All Good Things.mkv")]
+        [TestCase("Star.Trek.TNG.S07E25&24.All.Good.Things.mkv")]
         public void should_require_review_for_numbered_range_conflicting_with_unique_multipart_title(string name)
         {
             var episode = MultipartEpisode(name);
@@ -92,6 +95,8 @@ namespace NzbDrone.Core.Test.MediaFiles.EpisodeImport.Specifications
         [TestCase("Star Trek TNG S07E24-E25 - All Good Things (1) 1080P x264 RB58.mp4")]
         [TestCase("Star Trek TNG S07E24-E25 - Good Things 1080P x264 RB58.mp4")]
         [TestCase("Star Trek TNG S07E24-E26 - All Good Things 1080P x264 RB58.mp4")]
+        [TestCase("Star.Trek.TNG.S07E25&26.All.Good.Things.mkv")]
+        [TestCase("Star.Trek.TNG.S07E26&25.All.Good.Things.mkv")]
         public void should_preserve_valid_or_unrecognized_titles(string name)
         {
             Subject.IsSatisfiedBy(MultipartEpisode(name), new DownloadClientItem()).Accepted.Should().BeTrue();

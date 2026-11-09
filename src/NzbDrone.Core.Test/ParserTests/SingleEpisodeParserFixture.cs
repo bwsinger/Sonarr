@@ -8,6 +8,7 @@ namespace NzbDrone.Core.Test.ParserTests
     [TestFixture]
     public class SingleEpisodeParserFixture : CoreTest
     {
+        [TestCase("Series.S05E15.Title.&.16.Wishes.mkv", "Series", 5, 15)]
         [TestCase("Series.With.Title.S02E15", "Series With Title", 2, 15)]
         [TestCase("Series.and.a.Title.103.720p.HDTV.X264-DIMENSION", "Series and a Title", 1, 3)]
         [TestCase("Series.and.a.Title.113.720p.HDTV.X264-DIMENSION", "Series and a Title", 1, 13)]

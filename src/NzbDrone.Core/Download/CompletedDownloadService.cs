@@ -171,7 +171,11 @@ namespace NzbDrone.Core.Download
                 return;
             }
 
-            if (importResults.Count == 1)
+            var onlyAlreadyImported = importResults.All(r => r.Result == ImportResultType.Rejected &&
+                r.ImportDecision.Rejections.Any() &&
+                r.ImportDecision.Rejections.All(rejection => rejection.Reason == ImportRejectionReason.EpisodeAlreadyImported));
+
+            if (importResults.Count == 1 && !onlyAlreadyImported)
             {
                 var firstResult = importResults.First();
 
@@ -185,6 +189,11 @@ namespace NzbDrone.Core.Download
                                  {
                                     new TrackedDownloadStatusMessage("One or more episodes expected in this release were not imported or missing from the release", new List<string>())
                                  };
+
+            if (onlyAlreadyImported)
+            {
+                statusMessages[0].Messages.Add("Files were previously imported, but this download is still incomplete. Review the episode mapping using Manual Import.");
+            }
 
             if (importResults.Any(c => c.Result != ImportResultType.Imported))
             {

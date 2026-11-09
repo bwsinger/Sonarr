@@ -79,6 +79,10 @@ namespace NzbDrone.Core.Parser
                 new Regex(@"^(?:\W*(?<season>(?<!\d+)(?:\d{1,2}|\d{4})(?!\d+))(?:x{1,2}(?<episode>\d{1,3}(?!\d+)))+){2,}",
                           RegexOptions.IgnoreCase | RegexOptions.Compiled),
 
+                // Ampersands enumerate episodes; unlike hyphens, they do not imply a range.
+                new Regex(@"^(?:(?<title>.+?)[-_. ]+)?S(?<season>\d{1,2})E(?<episode>\d{1,3}(?!\d))(?<episodelist>(?:[ ]*&[ ]*E?(?<episode>\d{1,3}(?!\d)))+)(?:[-_. ]|$)",
+                    RegexOptions.IgnoreCase | RegexOptions.Compiled),
+
                 // Episodes without a title, Multi (S01E04E05, 1x04x05, etc)
                 new Regex(@"^(?:S?(?<season>(?<!\d+)(?:\d{1,2}|\d{4})(?!\d+))(?:(?:[-_]|[ex]){1,2}(?<episode>\d{2,3}(?!\d+))){2,})",
                           RegexOptions.IgnoreCase | RegexOptions.Compiled),
@@ -1048,13 +1052,15 @@ namespace NzbDrone.Core.Parser
                         var first = ParseNumber(episodeCaptures.First().Value);
                         var last = ParseNumber(episodeCaptures.Last().Value);
 
-                        if (first > last)
+                        if (first > last && !matchGroup.Groups["episodelist"].Success)
                         {
                             return null;
                         }
 
                         var count = last - first + 1;
-                        result.EpisodeNumbers = Enumerable.Range(first, count).ToArray();
+                        result.EpisodeNumbers = matchGroup.Groups["episodelist"].Success
+                            ? episodeCaptures.Select(c => ParseNumber(c.Value)).Distinct().ToArray()
+                            : Enumerable.Range(first, count).ToArray();
 
                         lastSeasonEpisodeStringIndex = Math.Max(lastSeasonEpisodeStringIndex, episodeCaptures.Last().EndIndex());
 

@@ -80,6 +80,17 @@ namespace NzbDrone.Core.Test.ParserTests
         [TestCase("Series Title - S26E96-97-98-99-100 - Episode 5931 + Episode 5932 + Episode 5933 + Episode 5934 + Episode 5935", "Series Title", 26, new[] { 96, 97, 98, 99, 100 })]
         [TestCase("Series falls - Temporada 1 [HDTV][Cap.111_120]", "Series falls", 1, new[] { 11, 12, 13, 14, 15, 16, 17, 18, 19, 20 })]
 
+        [TestCase("Star.Trek.Voyager.s05e15&16.Dark.Frontier.mkv", "Star Trek Voyager", 5, new[] { 15, 16 })]
+        [TestCase("Series.S05E15&E16.Title.mkv", "Series", 5, new[] { 15, 16 })]
+        [TestCase("Series - S05E15 & 16 - Title.mkv", "Series", 5, new[] { 15, 16 })]
+        [TestCase("S05E15&16.Title.mkv", "", 5, new[] { 15, 16 })]
+        [TestCase("Series.S05E15&17.Title.mkv", "Series", 5, new[] { 15, 17 })]
+        [TestCase("Series.S05E15&16&18.Title.mkv", "Series", 5, new[] { 15, 16, 18 })]
+        [TestCase("Series.S05E15&15.Title.mkv", "Series", 5, new[] { 15 })]
+
+        [TestCase("Series.S05E17&15.Title.mkv", "Series", 5, new[] { 17, 15 })]
+        [TestCase("Series.S05E15&16.Title [1080p].mkv", "Series", 5, new[] { 15, 16 })]
+
         // [TestCase("", "", , new [] {  })]
         public void should_parse_multiple_episodes(string postTitle, string title, int season, int[] episodes)
         {
