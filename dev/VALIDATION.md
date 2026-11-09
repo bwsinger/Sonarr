@@ -107,3 +107,27 @@ DOTNET_PROCESSOR_COUNT=2 "$HOME/.local/share/arr-dev-dotnet/dotnet" test \
   Verified 26/26 S07 and 178/178 regular-series coverage, correct E24 and shared
   E25/E26 files, complete byte equality and normal queue completion. Removed
   only the torrent entry with `deleteFiles=false`, then restored cleanup settings.
+
+## Ampersand episode lists and incomplete-import diagnostics — 2026-11-09
+
+- Voyager S05 contained 25 files for 26 episodes. The 92-minute
+  `Star.Trek.Voyager.s05e15&16.Dark.Frontier.mkv` parsed only as E15. E16 had no
+  file/import history, while every retry rejected all files as already imported.
+- Parse ampersand-separated numbers as an explicit list, with priority over
+  generic titleless matches. Do not expand gaps into unlisted episodes.
+  Apply the existing canonical multipart-title conflict guard to adjacent pairs.
+- When completion remains unverified and all results contain only the typed
+  already-imported rejection, explain that manual mapping review is required.
+  Single-file results must reach this warning even with grabbed release context.
+  Mixed or dangerous rejections retain the normal rejection handler.
+- No automatic repair of historical partial mappings, relaxed import checks,
+  forced completion, failed-download recovery, blocklisting or payload deletion.
+- Live repair used tracked copy-mode Manual Import with explicit E15/E16 IDs,
+  retaining SDTV/English metadata. Both episodes now share the correct file;
+  coverage is 26/26, import history verifies completion, and the queue cleared.
+  Completed-removal was temporarily disabled then restored. The torrent entry
+  was removed with `deleteFiles=false`; all 25 payload files retained their
+  device, inode and size. The original library file has a protected hardlink.
+- Validation: 2,720 affected parser/download/import tests passed; nine existing
+  platform skips. Two independent reviewers approved the final changes after
+  parser priority, single-file routing and pair-guard findings were resolved.

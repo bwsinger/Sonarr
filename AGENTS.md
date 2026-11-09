@@ -47,6 +47,15 @@ only covers part of a feature, keep and document only the remaining difference.
   and native seed readiness on retries; retain payload and never replay failure
   history, blocklisting or replacement searches. New grabs/imports supersede it.
 
+- Parse explicit `S05E15&16` filenames as episode lists, including titleless
+  files. Nonconsecutive lists must not invent intervening episodes. Adjacent
+  ampersand pairs retain the canonical multipart-title conflict guard. Existing
+  partial imports require verified manual correction; never bypass duplicate
+  rejection or mark an incomplete pack completed to clear its queue.
+- Already-imported-only incomplete downloads explain the mapping/history
+  mismatch and direct users to Manual Import. Preserve ordinary rejection and
+  dangerous-file handling for mixed results; never auto-fail these downloads.
+
 - Numbered episode-title fallback: map a file such as `01. The Hedge Knight.mkv`
   only with a trusted standard-series/single-season context and an unambiguous
   matching episode number AND normalized title. Do not guess on conflicts,
