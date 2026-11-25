@@ -6,7 +6,7 @@ LABEL org.opencontainers.image.source="https://github.com/bwsinger/Sonarr" \
       media-server.custom-features="zero-filled-video-recovery,import-minimum-score,numbered-episode-title"
 # Keep the upstream UI and media probe; replace the full self-contained runtime.
 RUN apk upgrade --no-cache \
-    && apk add --no-cache 'libxslt>=1.1.43-r4' \
+    && apk add --no-cache 'libxslt>=1.1.43-r4' 'libxml2>=2.13.9-r3' \
     && find /app/sonarr/bin -mindepth 1 -maxdepth 1 ! -name UI ! -name ffprobe ! -name LICENSE ! -name LICENSE.md -exec rm -rf {} +
 COPY .dev-build/ /app/sonarr/bin/
 RUN chmod -R a+rX /app/sonarr/bin
